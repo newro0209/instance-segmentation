@@ -1,49 +1,58 @@
-import os
 import argparse
 import yaml
 import torch
 from transformers import (
-    AutoModelForInstanceSegmentation,
-    AutoImageProcessor,
     TrainingArguments,
-    Trainer,
     set_seed
 )
-from datasets import load_dataset
+from instance_segmentation.models import load_segmentation_runtime
+from instance_segmentation.utils.config_loader import resolve_config_path
 
-def main():
+
+def _get_config_section(config: dict[str, object], section_name: str) -> dict[str, object]:
+    section = config.get(section_name)
+    if isinstance(section, dict):
+        return section
+    return {}
+
+
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="configs/base_config.yaml")
     args = parser.parse_args()
 
     # Load configuration
-    with open(args.config, 'r') as f:
+    config_path = resolve_config_path(args.config)
+    with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
 
-    set_seed(config['training']['seed'])
+    training_config = _get_config_section(config, 'training')
+    dataset_config = _get_config_section(config, 'dataset')
+
+    set_seed(int(training_config.get('seed', 42)))
 
     # 1. Load Model & Processor
-    model_name = config['model']['name']
-    image_processor = AutoImageProcessor.from_pretrained(model_name)
-    model = AutoModelForInstanceSegmentation.from_pretrained(model_name)
+    runtime = load_segmentation_runtime(config)
+    image_processor = runtime.image_processor
+    model = runtime.model
 
     # 2. Load Dataset (Example)
     # dataset = load_dataset(config['dataset']['name'])
 
     # 3. Training Arguments
     training_args = TrainingArguments(
-        output_dir=config['training']['output_dir'],
-        num_train_epochs=config['training']['num_epochs'],
-        per_device_train_batch_size=config['dataset']['batch_size'],
-        learning_rate=config['training']['learning_rate'],
-        weight_decay=config['training']['weight_decay'],
-        lr_scheduler_type=config['training']['lr_scheduler_type'],
-        warmup_steps=config['training']['warmup_steps'],
-        logging_steps=config['training']['logging_steps'],
+        output_dir=str(training_config.get('output_dir', './results')),
+        num_train_epochs=int(training_config.get('num_epochs', 50)),
+        per_device_train_batch_size=int(dataset_config.get('batch_size', 1)),
+        learning_rate=float(training_config.get('learning_rate', 5e-5)),
+        weight_decay=float(training_config.get('weight_decay', 0.0)),
+        lr_scheduler_type=str(training_config.get('lr_scheduler_type', 'linear')),
+        warmup_steps=int(training_config.get('warmup_steps', 0)),
+        logging_steps=int(training_config.get('logging_steps', 10)),
         evaluation_strategy="steps",
-        eval_steps=config['training']['eval_steps'],
+        eval_steps=int(training_config.get('eval_steps', 500)),
         save_strategy="steps",
-        save_steps=config['training']['save_steps'],
+        save_steps=int(training_config.get('save_steps', 1000)),
         fp16=torch.cuda.is_available(),
         push_to_hub=False,
         report_to="tensorboard", # or "wandb"
