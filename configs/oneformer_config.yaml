@@ -1,0 +1,15 @@
+# OneFormer Configuration for Instance Segmentation
+model:
+  name: "facebook/oneformer-swin-tiny-coco-instance"
+  type: "oneformer"
+
+dataset:
+  name: "scene_parse_150"
+  batch_size: 2
+  num_workers: 4
+
+training:
+  learning_rate: 0.00005
+  num_epochs: 50
+  output_dir: "./results/oneformer"
+  seed: 42
