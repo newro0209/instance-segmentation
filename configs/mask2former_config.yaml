@@ -1,7 +1,7 @@
 # Base Configuration for Instance Segmentation
 
 model:
-  name: "facebook/mask2former-swin-small-coco-instance" # Hugging Face model hub path
+  name: "facebook/mask2former-swin-tiny-coco-instance" # Hugging Face model hub path
   type: "mask2former"
 
 dataset:

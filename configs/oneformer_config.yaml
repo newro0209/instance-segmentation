@@ -1,6 +1,6 @@
 # OneFormer Configuration for Instance Segmentation
 model:
-  name: "facebook/oneformer-swin-tiny-coco-instance"
+  name: "shi-labs/oneformer_ade20k_swin_tiny"
   type: "oneformer"
 
 dataset:
