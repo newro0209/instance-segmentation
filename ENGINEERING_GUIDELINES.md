@@ -188,9 +188,10 @@ These module names are red flags—they indicate unclear responsibility:
 - ❌ `processors/`
 
 Each module must have a specific domain purpose:
-- ✅ `image_predictor.py` - Predicts instances on single images
-- ✅ `stream_analyzer.py` - Analyzes streaming camera input
-- ✅ `segmentation_trainer.py` - Trains segmentation models
+- ✅ `inference/image_inference.py` - Predicts instances on single images
+- ✅ `inference/stream_inference.py` - Analyzes streaming camera input
+- ✅ `training/mask2former_training.py` - Trains segmentation models
+- ✅ `runtime/mask2former_runtime.py` - Loads and runs Mask2Former consistently across experiments
 
 ### Layered Architecture (System-Agnostic)
 
@@ -493,7 +494,7 @@ def normalize_instance_results(raw_output):
     """
     모델 출력을 표준 포맷으로 변환합니다.
     
-    이 함수는 Mask2Former, OneFormer 등 다양한 모델의 출력을 통일된 형식으로
+    이 함수는 Mask2Former의 panoptic 및 instance 출력을 통일된 형식으로
     변환하여 시각화 파이프라인에서 사용할 수 있게 합니다.
     """
     ...
@@ -657,4 +658,4 @@ If all five are "yes", the design is solid.
 - [AGENTS.md](../AGENTS.md) - Project-specific guidelines
 - [GEMINI.md](../GEMINI.md) - Project overview and local setup
 - [src/instance_segmentation/utils/visualization.py](../src/instance_segmentation/utils/visualization.py) - Example of focused module
-- [segmentation_trainer.py](../src/instance_segmentation/segmentation_trainer.py) - Example of single-responsibility orchestration
+- [mask2former_training.py](../src/instance_segmentation/training/mask2former_training.py) - Example of single-responsibility orchestration

@@ -4,7 +4,7 @@ This document helps AI coding agents understand the project structure, conventio
 
 ## Project Overview
 
-Instance Segmentation research project leveraging Hugging Face `transformers` ecosystem. The project follows a configuration-driven, domain-centric architecture designed for experimentation and scalability.
+Instance Segmentation research project leveraging Hugging Face `transformers` ecosystem. The project follows a configuration-driven, reproducible research workflow architecture designed for experiments, training, inference, and evaluation growth.
 
 **Key Technologies**: PyTorch, Hugging Face transformers, OpenCV, YAML config management, `uv` package manager.
 
@@ -17,11 +17,11 @@ uv sync
 ```
 
 ### Core Commands (via `pyproject.toml` scripts)
-- **Verify GPU/CUDA**: `uv run verify` - Check GPU recognition and CUDA capability
-- **List Cameras**: `uv run devices` - Show connected cameras and properties
-- **Stream Analysis**: `uv run stream --config configs/mask2former_config.yaml --camera_id 1`
-- **Model Training**: `uv run train --config configs/mask2former_config.yaml`
-- **Single Image Prediction**: `uv run predict --config configs/mask2former_config.yaml --image data/sample.jpg`
+- **Verify GPU/CUDA**: `uv run verify-gpu` - Check GPU recognition and CUDA capability
+- **List Cameras**: `uv run list-cameras` - Show connected cameras and properties
+- **Stream Analysis**: `uv run infer-stream --config configs/mask2former_config.yaml --camera_id 1`
+- **Model Training**: `uv run train-mask2former --config configs/mask2former_config.yaml`
+- **Single Image Prediction**: `uv run infer-image --config configs/mask2former_config.yaml --image data/sample.jpg`
 
 ### Testing
 ```powershell
@@ -33,17 +33,21 @@ uv run pytest
 
 ```
 src/instance_segmentation/
-├── segmentation_trainer.py      # Training orchestration using HF Trainer API
-├── image_predictor.py           # Single image inference
-├── stream_analyzer.py           # Real-time camera stream processing
-├── gpu_verifier.py              # GPU/CUDA diagnostic utility
-├── device_explorer.py           # Camera and device enumeration
-├── domain/                      # Pure domain logic (functional core)
-│   ├── camera_selection.py      # Camera mode selection and crop logic (pure)
-│   └── device_catalog.py        # Device summary row/table generation (pure)
+├── runtime/                     # Mask2Former loading, preprocessing, inference, post-processing
+│   └── mask2former_runtime.py   # Shared runtime adapter for training/inference entry points
+├── inference/                   # Inference entry points for reproducible experiments
+│   ├── image_inference.py       # Single image inference
+│   └── stream_inference.py      # Real-time camera stream processing
+├── training/                    # Training setup and HF Trainer orchestration
+│   └── mask2former_training.py
+├── camera/                      # Pure camera/device decision logic for stream experiments
+│   ├── selection.py             # Camera mode selection and crop logic (pure)
+│   ├── device_catalog.py        # Device summary row/table generation (pure)
+│   └── device_enumerator.py     # Camera and device enumeration
+├── diagnostics/                 # Experiment environment diagnostics
+│   └── gpu_verification.py      # GPU/CUDA diagnostic utility
 ├── infrastructure/              # Side-effect adapters (I/O boundary)
 │   └── camera_probe.py          # OpenCV/PowerShell camera probing
-├── models/                      # Model wrappers and specific architectures
 ├── datasets/                    # Data loading, preprocessing, augmentation
 └── utils/
     ├── config_loader.py         # YAML configuration path resolution
@@ -52,8 +56,8 @@ src/instance_segmentation/
 
 configs/                          # YAML-driven experiment configuration
 ├── mask2former_config.yaml
-├── maskrcnn_config.yaml
-└── oneformer_config.yaml
+├── mask2former_instance_config.yaml
+└── mask2former_swin_large_config.yaml
 
 results/                          # Checkpoints, logs, evaluation outputs
 data/                            # Datasets and sample images
@@ -117,28 +121,28 @@ output_dir: "./results"
 
 **Use the shared visualization utilities in [utils/visualization.py](src/instance_segmentation/utils/visualization.py).**
 
-Both `image_predictor.py` and `stream_analyzer.py` follow the same pattern:
+Both `inference/image_inference.py` and `inference/stream_inference.py` follow the same pattern:
 ```python
 from instance_segmentation.utils.visualization import (
-    normalize_instance_results,      # Convert raw model output to standard format
-    draw_instance_overlay,           # Render masks on image
+    normalize_segmentation_results,  # Convert raw model output to standard format
+    draw_segmentation_overlay,       # Render masks on image
 )
 
 # 1. Get raw model output
 raw_output = model(**inputs)
 
 # 2. Normalize to standard format (list of dicts with score, label, mask)
-instance_list = normalize_instance_results(raw_output)
+segment_list = normalize_segmentation_results(raw_output)
 
 # 3. Render on image
-visualization = draw_instance_overlay(image, instance_list)
+visualization = draw_segmentation_overlay(image, segment_list, id2label)
 ```
 
 This ensures deterministic label colors and consistent rendering across all entry points.
 
 ### 4. Hugging Face Trainer API
 
-Training orchestration prefers the HF `Trainer` class for consistency with the ecosystem. See [segmentation_trainer.py](src/instance_segmentation/segmentation_trainer.py) for example.
+Training orchestration prefers the HF `Trainer` class for consistency with the ecosystem. See [training/mask2former_training.py](src/instance_segmentation/training/mask2former_training.py) for example.
 
 ```python
 from transformers import Trainer, TrainingArguments
@@ -180,13 +184,13 @@ for each user in users:
 
 ### 6. CUDA/GPU Handling
 
-GPU detection is critical. Reference [gpu_verifier.py](src/instance-segmentation/gpu_verifier.py) for proper diagnostics.
+GPU detection is critical. Reference [gpu_verification.py](src/instance_segmentation/diagnostics/gpu_verification.py) for proper diagnostics.
 
 **Common issue**: After dependency changes, use proper uv synchronization:
 ```powershell
 uv lock --upgrade --index pytorch-cu130
 uv sync --refresh
-uv run verify
+uv run verify-gpu
 ```
 
 Expected success output:
@@ -215,6 +219,7 @@ Expected success output:
 - Do not use legacy typing collection aliases like `List`, `Dict`, `Tuple`, `Set`, `Optional`.
 - Use built-in generic types: `list[T]`, `dict[K, V]`, `tuple[T, ...]`, `set[T]`, `T | None`.
 - Import from `typing` only when there is no built-in alternative (for example `Protocol`, `TypedDict`, `TypeAlias`, `Literal`).
+- When working with Hugging Face `transformers`, prefer public library types over local structural redefinitions. Use concrete types such as `Mask2FormerImageProcessor`, `Mask2FormerForUniversalSegmentation`, `BatchFeature`, `ImageInput`, and model output types, then narrow `Auto*` loader results with runtime checks like `isinstance`. Avoid custom `Protocol` classes that duplicate `transformers` APIs unless no public type exists.
 
 ### Cohesion & Coupling Rule
 
@@ -225,9 +230,11 @@ Expected success output:
 ### Single Responsibility
 
 Each module has one clear purpose:
-- `segmentation_trainer.py`: Training orchestration only
-- `image_predictor.py`: Single image inference only
-- `stream_analyzer.py`: Real-time stream processing only
+- `training/mask2former_training.py`: Training orchestration only
+- `inference/image_inference.py`: Single image inference only
+- `inference/stream_inference.py`: Real-time stream processing only
+- `runtime/mask2former_runtime.py`: Shared Mask2Former runtime only
+- `camera/selection.py`: Camera mode and crop decision logic only
 - `visualization.py`: Rendering logic only
 
 When adding features, ask: "Does this belong in this module's responsibility?"
@@ -312,11 +319,14 @@ def process_image(image_path):
 | [main.py](main.py) | Placeholder entry point | Keep minimal |
 | [pyproject.toml](pyproject.toml) | Package config & entry points | Scripts map to module:function |
 | [configs/*.yaml](configs/) | Experiment parameters | Single source of truth for hyperparams |
-| [src/.../segmentation_trainer.py](src/instance_segmentation/segmentation_trainer.py) | Training | Load config → build model → use HF Trainer |
-| [src/.../image_predictor.py](src/instance_segmentation/image_predictor.py) | Inference (static) | normalize_instance_results → draw_instance_overlay |
-| [src/.../stream_analyzer.py](src/instance_segmentation/stream_analyzer.py) | Inference (streaming) | Same visualization pipeline as image_predictor |
-| [src/.../domain/camera_selection.py](src/instance_segmentation/domain/camera_selection.py) | Functional camera logic | Size inference, mode ranking, center crop (pure) |
-| [src/.../domain/device_catalog.py](src/instance_segmentation/domain/device_catalog.py) | Functional device summary | Device typing + deterministic table rendering (pure) |
+| [src/.../runtime/mask2former_runtime.py](src/instance_segmentation/runtime/mask2former_runtime.py) | Runtime | Load Mask2Former → preprocess → infer → post-process |
+| [src/.../training/mask2former_training.py](src/instance_segmentation/training/mask2former_training.py) | Training | Load config → build model → use HF Trainer |
+| [src/.../inference/image_inference.py](src/instance_segmentation/inference/image_inference.py) | Inference (static) | normalize_segmentation_results → draw_segmentation_overlay |
+| [src/.../inference/stream_inference.py](src/instance_segmentation/inference/stream_inference.py) | Inference (streaming) | Same visualization pipeline as image_inference |
+| [src/.../camera/selection.py](src/instance_segmentation/camera/selection.py) | Functional camera logic | Size inference, mode ranking, center crop (pure) |
+| [src/.../camera/device_catalog.py](src/instance_segmentation/camera/device_catalog.py) | Functional device summary | Device typing + deterministic table rendering (pure) |
+| [src/.../camera/device_enumerator.py](src/instance_segmentation/camera/device_enumerator.py) | Camera CLI | Probe and print connected camera devices |
+| [src/.../diagnostics/gpu_verification.py](src/instance_segmentation/diagnostics/gpu_verification.py) | Diagnostics | Verify PyTorch CUDA availability |
 | [src/.../infrastructure/camera_probe.py](src/instance_segmentation/infrastructure/camera_probe.py) | I/O boundary | OpenCV/PowerShell probing isolated from domain logic |
 | [src/.../utils/visualization.py](src/instance_segmentation/utils/visualization.py) | Shared rendering | Deterministic colors, normalize + draw pattern |
 | [src/.../utils/config_loader.py](src/instance_segmentation/utils/config_loader.py) | Config resolution | Handles relative & absolute paths |

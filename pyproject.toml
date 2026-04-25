@@ -5,7 +5,9 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "accelerate>=1.10.1",
     "opencv-python>=4.13.0.92",
+    "pillow>=11.3.0",
     "pyyaml>=6.0.3",
     "scipy>=1.17.1",
     "torch>=2.11.0",
@@ -14,17 +16,25 @@ dependencies = [
 ]
 
 [project.scripts]
-train = "instance_segmentation.segmentation_trainer:main"
-predict = "instance_segmentation.image_predictor:main"
-stream = "instance_segmentation.stream_analyzer:main"
-devices = "instance_segmentation.device_explorer:main"
-verify = "instance_segmentation.gpu_verifier:main"
+train-mask2former = "instance_segmentation.training.mask2former_training:main"
+infer-image = "instance_segmentation.inference.image_inference:main"
+infer-stream = "instance_segmentation.inference.stream_inference:main"
+list-cameras = "instance_segmentation.camera.device_enumerator:main"
+verify-gpu = "instance_segmentation.diagnostics.gpu_verification:main"
 
 [build-system]
 requires = ["uv_build>=0.9.30,<0.10.0"]
 build-backend = "uv_build"
 
+[tool.uv]
+index-strategy = "unsafe-best-match"
+
 [[tool.uv.index]]
 name = "pytorch-cu130"
 url = "https://download.pytorch.org/whl/cu130"
 priority = "primary"
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+priority = "supplemental"

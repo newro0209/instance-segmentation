@@ -1,5 +1,10 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
 import json
+import os
+import platform
 import subprocess
+import sys
 
 import cv2
 
@@ -15,6 +20,39 @@ COMMON_CAMERA_RESOLUTIONS: list[tuple[int, int]] = [
     (800, 600),
     (640, 480),
 ]
+
+CAMERA_CAPTURE_BACKEND = cv2.CAP_DSHOW if platform.system() == "Windows" else cv2.CAP_ANY
+
+
+@contextmanager
+def suppress_native_camera_probe_errors() -> Iterator[None]:
+    try:
+        stderr_fd = sys.stderr.fileno()
+    except (AttributeError, OSError):
+        yield
+        return
+
+    saved_stderr_fd = os.dup(stderr_fd)
+    try:
+        with open(os.devnull, "w", encoding="utf-8") as null_stream:
+            os.dup2(null_stream.fileno(), stderr_fd)
+            yield
+    finally:
+        os.dup2(saved_stderr_fd, stderr_fd)
+        os.close(saved_stderr_fd)
+
+
+def open_camera_capture(
+    camera_index: int,
+    native_probe_errors_suppressed: bool = False,
+) -> cv2.VideoCapture:
+    if native_probe_errors_suppressed:
+        with suppress_native_camera_probe_errors():
+            return open_camera_capture(camera_index)
+
+    if CAMERA_CAPTURE_BACKEND == cv2.CAP_ANY:
+        return cv2.VideoCapture(camera_index)
+    return cv2.VideoCapture(camera_index, CAMERA_CAPTURE_BACKEND)
 
 
 def get_all_pnp_devices() -> list[dict[str, str]]:
@@ -44,7 +82,7 @@ def probe_openable_indices(max_tested: int = 10) -> list[int]:
     openable_indices: list[int] = []
 
     for index in range(max_tested):
-        cap = cv2.VideoCapture(index)
+        cap = open_camera_capture(index, native_probe_errors_suppressed=True)
         if cap.isOpened():
             openable_indices.append(index)
         cap.release()
@@ -55,10 +93,10 @@ def probe_openable_indices(max_tested: int = 10) -> list[int]:
 def list_cameras(max_tested: int = 5) -> list[int]:
     available_cameras: list[int] = []
     for camera_index in range(max_tested):
-        cap = cv2.VideoCapture(camera_index)
+        cap = open_camera_capture(camera_index, native_probe_errors_suppressed=True)
         if cap.isOpened():
             available_cameras.append(camera_index)
-            cap.release()
+        cap.release()
     return available_cameras
 
 
@@ -66,7 +104,7 @@ def probe_camera_modes(
     camera_id: int,
     candidate_resolutions: list[tuple[int, int]] | None = None,
 ) -> list[tuple[int, int, float]]:
-    cap = cv2.VideoCapture(camera_id)
+    cap = open_camera_capture(camera_id, native_probe_errors_suppressed=True)
     if not cap.isOpened():
         return []
 

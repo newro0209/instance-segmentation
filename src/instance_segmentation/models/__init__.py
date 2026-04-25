@@ -1,7 +1,0 @@
-from instance_segmentation.models.segmentation_runtime import (
-	SegmentationRuntime,
-	load_segmentation_runtime,
-)
-
-__all__ = ["SegmentationRuntime", "load_segmentation_runtime"]
-

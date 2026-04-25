@@ -1,15 +1,15 @@
-# Base Configuration for Panoptic Segmentation
+# Large Mask2Former Configuration for Panoptic Segmentation
 
 model:
-  name: "facebook/mask2former-swin-tiny-coco-panoptic" # Hugging Face model hub path
+  name: "facebook/mask2former-swin-large-coco-panoptic"
   type: "mask2former"
 
 dataset:
-  name: "scene_parse_150" # Example dataset
+  name: "scene_parse_150"
   format: "segmentation_folder"
   train_split: "train"
   test_split: "validation"
-  batch_size: 4
+  batch_size: 1
   num_workers: 4
   ignore_index: 255
   reduce_labels: false
@@ -31,7 +31,7 @@ training:
   logging_steps: 10
   eval_steps: 500
   save_steps: 1000
-  output_dir: "./results"
+  output_dir: "./results/mask2former-swin-large"
   seed: 42
   report_to: "none"
 
